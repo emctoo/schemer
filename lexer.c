@@ -36,17 +36,57 @@ typedef struct {
 } token_t;
 
 bool token_any(program_t *program, token_t *token, char any[]) {
-	char c[1] = { program->code[program->iter];};
+	char c[] = { program->code[program->iter] } ;
 	int idx = strspn(c, any);
 	if(idx >= strlen(any)) { return false; }
 	token->token[0] = c[0];
 	token->len = 1;
 }
 
-const char token_single[] = "[]{}|(}'`.";
-const char token_prfix[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!$%&*/:<=>?^_~";
-const char token_in[] = "1234567890+-.@";
+const char reserved[] = "[]{}|";
+bool is_reserved(char _c) {
+	char c[] = { _c };
+	return strspn(c, reserved);
+}
+
+const char token_character[] = "()'`,.";
+bool is_token_chararcter(char _c) {
+	char c[] = { _c };
+	return strspn(c, token_character);
+}
+
+// comma(,) is also a token_character, with ,@ the same
+bool token_comma(program_t *program, token_t *token) {
+	char c = program->code[program->iter];
+	char n = program->code[program->iter + 1];
+	char t = program->code[program->iter + 2];
+	if ( c == ',' && isblank(n) ) {
+		program->iter++, program->col++;
+		token->token[0] = ',', token->len = 1;
+		return true;
+	} else if ( c == ',' && n == '@'  && isblank(t)) {
+		program->iter++, program->col++;
+		token->token[0] = ',', token->token[1] = '@', token->len = 2;
+		return true;
+	}
+	return false;
+}
 	
+const char special_initial[] = "!$%&*/:<=>?^_~";
+bool is_special_initial(char _c) {
+	char c[] = { _c };
+	return strspn(c, special_initial);
+}
+
+const char special_subquent[] = "+-.@";
+bool is_special_subquent(char _c) {
+	char c[] = { _c };
+	return strspn(c, special_subquent); 
+}
+
+// const char peculiar_identifier = "+-..."
+
+/*
 bool token_identifier(program_t *program, token_t *token) {
 	int token_len = 0;
 	while ( isblank(program->code[program->iter] ) {
@@ -80,7 +120,7 @@ bool token_next(program_t *program, token_t *token) {
 		token->code[0] = c, token->code[1] = n, token->len = 2;
 		program->iter += 2, program->cos += 2;
 		return true;
-	} else if ( token_any(program, token, token_prefix) ) {
+	} else if ( token_any(program, token, token_prefix) || isalpha(c) ) {
 		
 	}
 	
@@ -94,7 +134,7 @@ bool token_next(program_t *program, token_t *token) {
 		return true;
 	}
 }
-
+*/
 int main (void) {
 	program_t program;
 	program_load("./code.scm", &program);
