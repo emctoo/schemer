@@ -34,10 +34,21 @@ typedef enum _token_type {
 	tk_identifier, tk_boolean, tk_number, tk_character, tk_string, tk_single
 } token_type;
 
+typedef double number_t;
+
+typedef union _data_t {
+	char tk_char_single;
+	char tk_char_double[2];
+	char tk_char_triple[3];
+	char *tk_string;
+	number_t tk_number;
+} data_t;
+
 typedef struct { 
 	char token[TOKEN_MAX_LENGTH];
 	int len;
 	token_type tp;
+	data_t data;
 } token_t;
 
 bool token_loop_until_blank(program_t *program, token_t *token) {
@@ -192,8 +203,7 @@ bool token_character(program_t *program, token_t *token) {
 
 /* only support two kind of escape, \\ and \" */ 
 bool token_string(program_t *program, token_t *token) {
-	if ( program->code[program->iter] != '"' ) return false;
-	/* todo: string is long, how to store them differently? */
+	if ( program->code[program->iter] != '"' ) return false;	
 }
 
 /*
