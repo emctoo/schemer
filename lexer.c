@@ -193,11 +193,7 @@ bool token_character(program_t *program, token_t *token) {
 /* only support two kind of escape, \\ and \" */ 
 bool token_string(program_t *program, token_t *token) {
 	if ( program->code[program->iter] != '"' ) return false;
-<<<<<<< HEAD
 	/* todo: string is long, how to store them differently? */
-=======
-	
->>>>>>> 266e5894a9d0b434476b24158345b500bb6e0e5e
 }
 
 /*
