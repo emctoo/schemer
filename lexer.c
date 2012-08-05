@@ -1,17 +1,4 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-
-#define MAX_PROGRAM_LENGTH (1024 * 1024)
-
-typedef struct {
-	char code[MAX_PROGRAM_LENGTH];
-	int len;
-	int iter;
-	int row;
-	int col;
-} program_t;
+#include "lexer.h"
 
 bool program_load(char *file_name, program_t *program) {
 	FILE *f = fopen(file_name, "rb");
@@ -22,35 +9,25 @@ bool program_load(char *file_name, program_t *program) {
 	fclose(f);
 		
 	program->iter 	= 0;
-	program->row 	= 0;
-	program->col 	= 0;
+	program->row 	= 1;
+	program->col 	= 1;
 	return true;
 }
 
-// ----
-#define TOKEN_MAX_LENGTH 32
+void token_output(token_t *token) {
+	switch(token->tp) {
+		case tk_string: {	
+			printf("%s, %s", "string", token->value.tk_string);
+			break;
+		}
+		case tk_comment: {
+			printf("comment");
+			break;
+		}
+	}
+}
 
-typedef enum _token_type { 
-	tk_identifier, tk_boolean, tk_number, tk_character, tk_string, tk_single
-} token_type;
-
-typedef double number_t;
-
-typedef union _data_t {
-	char tk_char_single;
-	char tk_char_double[2];
-	char tk_char_triple[3];
-	char *tk_string;
-	number_t tk_number;
-} data_t;
-
-typedef struct { 
-	char token[TOKEN_MAX_LENGTH];
-	int len;
-	token_type tp;
-	data_t data;
-} token_t;
-
+	
 bool token_loop_until_blank(program_t *program, token_t *token) {
 	char *code = program->code;
 	int iter = 0;
@@ -69,17 +46,68 @@ bool token_any(program_t *program, token_t *token, char any[]) {
 	token->len = 1;
 }
 
+const char delimiter[] = "()\";\n ";
+bool is_delimiter(char _c) {
+	char c[] = { _c };
+	return strspn(c, delimiter);
+}
+
 const char reserved[] = "[]{}|";
 bool is_reserved(char _c) {
 	char c[] = { _c };
 	return strspn(c, reserved);
 }
 
-const char token_single[] = "()'`,.";
+/* #(, #t, #f, #\<char>, #\<char name>, #i, #e, #b, #o, #d, #x */
+bool token_sharp(program_t *program, token_t *token) {
+	char _1 = program->code[program->iter];	
+	char _2 = program->code[program->iter + 1];
+	char _3 = program->code[program->iter + 2];
+
+	if ( _1 != '#' ) { return false; }
+	if ( _2 == '(' && is_delimiter(_3) ) {
+		token->tp = tk_sharp_left_parenthesis;
+		return true;
+	}
+	if ( _2 == 't' && is_delimiter(_3) ) {
+		token->tp = tk_sharp_left_parenthesis;
+		return true;
+	}
+	if ( _2 == 'f' && is_delimiter(_3) ) {
+		token->tp = tk_sharp_left_parenthesis;
+		return true;
+	}	
+}
+
+const char token_single[] = "()#'`,.";
 bool is_token_single(char _c) {
 	char c[] = { _c };
 	return strspn(c, token_single);
 }
+
+/* single as token
+
+tk_left_parenthesis			(
+tk_right_parenthesis, 		)
+tk_sharp_left_parenthesis, 	#( -- not included here
+tk_apostrophe, 				'
+tk_grave_accent, 			`
+tk_comma, 					,  -- not included here
+tk_comma_at, 				,( -- not included here
+tk_period					.
+
+*/ 
+
+bool token_parenthesis(program_t *program, token_t *token) {
+	char _1 = program->code[program->iter];
+	char _2 = program->code[program->iter + 1];	
+	switch(_1) {
+		case '(': { token->tp = tk_left_parenthesis; break; }
+		case ')': { token->tp = tk_right_parenthesis; break; }
+		case '#': { token_sharp(program, token); break; }
+	}
+}
+
 
 // comma(,) is also a token_character, with ,@ the same
 bool token_comma(program_t *program, token_t *token) {
@@ -127,9 +155,6 @@ bool token_period(program_t *program, token_t *token) {
 	return false;
 }
 
-/* #(, #t, #f, #\<char>, #\<char name>, #i, #e, #b, #o, #d, #x */
-bool token_sharp(program_t *program, token_t *token) {
-}
 
 /* ---- character #\<character name>
 
@@ -201,9 +226,39 @@ bool token_character(program_t *program, token_t *token) {
 
 */
 
-/* only support two kind of escape, \\ and \" */ 
+/* "<any chars other than \ or ">"
+ * only support two kind of escape, \\ and \" 
+ * or escape anything behind \
+ */ 
 bool token_string(program_t *program, token_t *token) {
-	if ( program->code[program->iter] != '"' ) return false;	
+	if ( program->code[program->iter] != '"' ) return false;
+	program->iter++, program->col++;
+	
+	char *code = program->code + program->iter;
+	int iter = program->iter;
+	
+	int length = 64, counter = 0;
+	char *buffer = (char *) malloc(sizeof(char) * length);
+	while( true ) {
+		if ( iter == length ) { 
+			length += 64;
+			buffer = (char *) realloc( buffer, length);
+		} 
+		
+		if ( code[iter] == '"' ) { break; } 
+		
+		if ( code[iter] == '\\' ) { 
+			buffer[counter] = code[iter+1]; 
+			iter += 2, counter++; 
+		} 
+		
+		buffer[counter] = code[iter];
+		counter++, iter++;		
+	}
+	
+	buffer = (char *) realloc( buffer, counter);
+	token->value.tk_string = buffer;	
+	return true;
 }
 
 /*
@@ -220,44 +275,43 @@ bool token_identifier(program_t *program, token_t *token) {
 	return true;
 }
 
+*/
+
+void token_comment(program_t *program) {
+	if(program->code[program->iter] != ';') return;
+	printf("[comment] (%d, %d)", program->row, program->col);
+	while(program->code[program->iter] != '\n') {		
+		// printf("%c @(%d, %d)\n", program->code[program->iter], program->row, program->col);
+		program->iter++, program->col++;
+	}	
+	printf("-- (%d, %d)\n", program->row, program->col);
+	program->iter++, program->row++, program->col = 1;
+}
+
+void lexer_error(char *s, int r, int c) { 
+	printf("[%s] @ (%d, %d)\n", s, r, c); 
+	exit(0); 
+}
+
 bool token_next(program_t *program, token_t *token) {
 	char c = program->code[program->iter], n = program->code[program->iter + 1];
 	int iter = program->iter;
 	
-	if(isblank(c)) { 
-		program->iter++;		
-		program->col++;
-		return true; 
-	} else if ( c == '\n') { 
-		program->iter++;
-		program->row++;
-		program->col++;
-	} else if ( c == ',' && isblank(n) ) { 
-		token->code[0] = c, token->len = 1;
-		program->iter++, program->cos++;
-		return true;
-	} else if ( c == ',' && n == '@' ) { 
-		token->code[0] = c, token->code[1] = n, token->len = 2;
-		program->iter += 2, program->cos += 2;
-		return true;
-	} else if ( token_any(program, token, token_prefix) || isalpha(c) ) {
-		
-	}
-	
-	
-	if(token_any(program, token, token_single)) {
-		program->iter++;
-		program->col++;
-	}  else if ( c == '#' && ( n == '(' || n == 'f' || n == 't')) {		
-		token->code[0] = c, token->code[1] = n, token->len = 2;
-		program->iter += 2, program->cos += 2;
-		return true;
-	}
+	printf("{%s} %c\n", __FUNCTION__, c);
+	if( is_reserved(c)) { lexer_error("reserved character", program->row, program->col); }
+	if( c == ';' ) { token_comment(program); return true; }
 }
-*/
-int main (void) {
+
+int main (void) {	
 	program_t program;
 	program_load("./code.scm", &program);
 	printf("%s\n", program.code);
+	
+	bool lexer_status = true;
+	while(lexer_status == true) {		
+		token_t token;
+		lexer_status = token_next(&program, &token);
+		if(lexer_status == true) { token_output(&token); }
+	}
 	return 0;
 }
