@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "utils.h"
 
 bool program_load(char *file_name, program_t *program) {
 	FILE *f = fopen(file_name, "rb");
@@ -14,6 +15,8 @@ bool program_load(char *file_name, program_t *program) {
 	return true;
 }
 
+// ---- 
+
 void token_output(token_t *token) {
 	switch(token->tp) {
 		case tk_string: {	
@@ -27,15 +30,12 @@ void token_output(token_t *token) {
 	}
 }
 
-	
-bool token_loop_until_blank(program_t *program, token_t *token) {
-	char *code = program->code;
-	int iter = 0;
-	while ( isblank(code[iter]) == false ) {
-		if ( program->iter + iter == TOKEN_MAX_LENGTH) { return false; }
-		token->token[iter] = code[program->iter + iter];
-		iter++;
-	}
+/* */
+int token_while(program_t *program, filter_func func) {
+	char *code = program->code + program->iter;
+	int counter = 0;
+	while (func(code[counter]) == true) { counter++; }
+	return counter;
 }
 
 bool token_any(program_t *program, token_t *token, char any[]) {
@@ -79,35 +79,11 @@ bool token_sharp(program_t *program, token_t *token) {
 	}	
 }
 
-const char token_single[] = "()#'`,.";
+const char token_single_character[] = "()#'`,.";
 bool is_token_single(char _c) {
 	char c[] = { _c };
-	return strspn(c, token_single);
+	return strspn(c, token_single_character);
 }
-
-/* single as token
-
-tk_left_parenthesis			(
-tk_right_parenthesis, 		)
-tk_sharp_left_parenthesis, 	#( -- not included here
-tk_apostrophe, 				'
-tk_grave_accent, 			`
-tk_comma, 					,  -- not included here
-tk_comma_at, 				,( -- not included here
-tk_period					.
-
-*/ 
-
-bool token_parenthesis(program_t *program, token_t *token) {
-	char _1 = program->code[program->iter];
-	char _2 = program->code[program->iter + 1];	
-	switch(_1) {
-		case '(': { token->tp = tk_left_parenthesis; break; }
-		case ')': { token->tp = tk_right_parenthesis; break; }
-		case '#': { token_sharp(program, token); break; }
-	}
-}
-
 
 // comma(,) is also a token_character, with ,@ the same
 bool token_comma(program_t *program, token_t *token) {
@@ -126,18 +102,6 @@ bool token_comma(program_t *program, token_t *token) {
 	return false;
 }
 	
-const char special_initial[] = "!$%&*/:<=>?^_~";
-bool is_special_initial(char _c) {
-	char c[] = { _c };
-	return strspn(c, special_initial);
-}
-
-const char special_subquent[] = "+-.@";
-bool is_special_subquent(char _c) {
-	char c[] = { _c };
-	return strspn(c, special_subquent); 
-}
-
 bool token_period(program_t *program, token_t *token) {
 	char c = program->code[program->iter];
 	char n = program->code[program->iter + 1];
@@ -189,13 +153,12 @@ bool token_character(program_t *program, token_t *token) {
 			token->token[0] = _3, token->len = 1, token->tp = tk_character;
 			return true;
 		}		
-		token_loop_until_blank(program, token);
+		// token_loop_until_delimiter(program, token);
 		token->len = 1, token->tp = tk_character;
 		return true;
 	}
 	return false;
 }
-		
 
 /* ----  string escape code
 
@@ -261,24 +224,87 @@ bool token_string(program_t *program, token_t *token) {
 	return true;
 }
 
-/*
+const char special_initial[] = "!$%&*/:<=>?^_~";
+bool is_special_initial(char _c) {
+	char c[] = { _c };
+	return strspn(c, special_initial);
+}
+
+const char special_subquent[] = "+-.@";
+bool is_special_subquent(char _c) {
+	char c[] = { _c };
+	return strspn(c, special_subquent); 
+}
+
+bool is_initial(char c) { return isalpha(c) || is_special_initial(c) ; }
+
+bool is_subquent(char c) {
+	return is_initial(c) || isdigit(c) || is_special_subquent(c);
+}
+
+/* todo: keyword or variable */
+void identifier_classify(char *identifier, int len, token_t *token) {	
+}
+
 bool token_identifier(program_t *program, token_t *token) {
-	int token_len = 0;
-	while ( isblank(program->code[program->iter] ) {
-		token->token[token_len] = program->code[program->iter];
-		token->len++;
-		if ( token_len = token->len ) { return false; }
-		
-		program->iter++;
-		program->col++;		
-	}
+	char _1 = program->code[program->iter];
+	if(is_initial(_1) == false) return false;
+	token->tp = tk_identifier;
+	
+	int len = token_while(program, is_subquent);
+	program->iter += len;
+	
+	char *identifier = (char *) malloc(sizeof(char) * len) ;
+	strncpy(identifier, program->code + program->iter, len);
+	identifier_classify(identifier, len, token);
+	
 	return true;
 }
 
-*/
+/* single as token
 
-void token_comment(program_t *program) {
-	if(program->code[program->iter] != ';') return;
+tk_left_parenthesis			(
+tk_right_parenthesis, 		)
+tk_sharp_left_parenthesis, 	#( -- not included here
+tk_apostrophe, 				'
+tk_grave_accent, 			`
+tk_comma, 					,  -- not included here
+tk_comma_at, 				,( -- not included here
+tk_period					.
+
+*/ 
+
+bool token_single(program_t *program, token_t *token) {
+	char _1 = program->code[program->iter];
+	if(is_token_single(_1) == false) return false; 
+	char _2 = program->code[program->iter + 1];	
+	switch(_1) {
+		case '(': { 
+			token->tp = tk_left_parenthesis; 
+			program->iter++, program->col++;
+			break; 
+		}
+		case ')': { 
+			token->tp = tk_right_parenthesis; 
+			program->iter++, program->col++;
+			break; 
+		}
+		case '#': {
+			token_sharp(program, token); 
+			break; 
+		}
+	}
+}
+
+/* error */
+void lexer_error(char *s, int r, int c) { 
+	printf("[%s] @ (%d, %d)\n", s, r, c); 
+	exit(0); 
+}
+
+/* comment */
+bool token_comment(program_t *program) {
+	if(program->code[program->iter] != ';') return false;
 	printf("[comment] (%d, %d)", program->row, program->col);
 	while(program->code[program->iter] != '\n') {		
 		// printf("%c @(%d, %d)\n", program->code[program->iter], program->row, program->col);
@@ -286,32 +312,51 @@ void token_comment(program_t *program) {
 	}	
 	printf("-- (%d, %d)\n", program->row, program->col);
 	program->iter++, program->row++, program->col = 1;
+	return true;
 }
 
-void lexer_error(char *s, int r, int c) { 
-	printf("[%s] @ (%d, %d)\n", s, r, c); 
-	exit(0); 
+bool token_whitespace(program_t *program) {	
+	if(isblank(program->code[program->iter]) == false) return false;
+	while(isblank(program->code[program->iter]) == true) { 
+		program->iter++, program->col++;
+		if(program->code[program->iter] == '\n') { program->row++; }		
+	}
+	return true;
 }
+	
 
+// ---- 
 bool token_next(program_t *program, token_t *token) {
 	char c = program->code[program->iter], n = program->code[program->iter + 1];
 	int iter = program->iter;
 	
 	printf("{%s} %c\n", __FUNCTION__, c);
-	if( is_reserved(c)) { lexer_error("reserved character", program->row, program->col); }
-	if( c == ';' ) { token_comment(program); return true; }
+	/* reserved characters */
+	if( is_reserved(c)) { 
+		lexer_error("reserved character", program->row, program->col); 
+	}
+	/* comment */
+	while(token_comment(program)) ;
+	/* space or newline */
+	while(token_whitespace(program)) ;
+	/* single character as token */
+	if(token_single(program, token) == true) return true;
+	if(token_identifier(program, token) == true) return true;
+	return false;
 }
 
 int main (void) {	
 	program_t program;
 	program_load("./code.scm", &program);
-	printf("%s\n", program.code);
+	
+	printf("---- code\n%s\n---- lexer\n", program.code);
 	
 	bool lexer_status = true;
 	while(lexer_status == true) {		
 		token_t token;
 		lexer_status = token_next(&program, &token);
-		if(lexer_status == true) { token_output(&token); }
+		token_output(&token);
 	}
+	printf("----\n");
 	return 0;
 }

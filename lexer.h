@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX_PROGRAM_LENGTH (1024 * 1024)
 
@@ -55,3 +56,9 @@ typedef struct {
 } token_t;
 
 void token_output(token_t *token);
+bool is_delimiter(char _c);
+typedef bool (*filter_func)(char);
+int token_while(program_t *program, filter_func func);
+
+// character program->code[program->iter] is in string 'any' or not
+bool token_any(program_t *program, token_t *token, char any[]);
