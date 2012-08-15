@@ -63,11 +63,14 @@ def generate(env):
                 return "".join(" -package " + package for package in packages)
         env["_ghc_package_opts"] = _ghc_package_opts
 
+        '''
         if env['PLATFORM'] == 'win32':
             path = 'C:\\Program Files\\Haskell Platform\\2012.2.0.0\\bin\\'
         elif env['PLATFORM'] == 'posix':
-            path = '' 
+            path = '' 		
         env["HSC"] = File( path + 'ghc')
+		'''
+		env["HSC"] = 'ghc'
         env["HSCFLAGS"] = []
         env["HSLINKFLAGS"] = []
         env["HSSEARCHPATH"] = []

@@ -1,8 +1,9 @@
 import os
 env = Environment(
 	# ENV = {'PATH' : 'C:/Program\ Files/Haskell\ Platform/2012.2.0.0/bin' },
-	tools = ['mingw', 'ghc'], 
-	toolpath = ['.', "C:/Program\ Files/Haskell\ Platform/2012.2.0.0/bin"]
+	# tools = ['mingw', 'ghc'], 
+	# toolpath = ['.', "C:/Program\ Files/Haskell\ Platform/2012.2.0.0/bin"]
+	tools = ['mingw']
 	)
 # env.Detect(['ghc'])
 print env['PLATFORM']
@@ -12,8 +13,26 @@ env.MergeFlags([
 	])
 env.Program(target = 'word', source = ['lexer.c', 'utils.c'])
 # env.SharedLibrary('lexer', source = ['lexer.c'])
+
+'''
 env.HaskellProgram(
 	target = 'schemer',
 	source = ['schemer.hs'],
-	HSPACKAGE = ["mtl", "parsec"],
+	HSPACKAGE = ["process", "mtl", "parsec"],
 	)
+
+ghc = File('C:\\Program Files\\Haskell Platform\\2012.2.0.0\\bin\\ghc')
+env.Command(
+	'schemer', 
+	'schemer.hs', 
+	"C:\\Program Files\\Haskell Platform\\2012.2.0.0\\bin\\ghc $SOURCE -o $TARGET"
+	)
+
+haskell_bin = Dir('C:\\Program Files\\Haskell Platform\\2012.2.0.0\\bin\\')
+added_path = ['C:\\Program Files\\Haskell Platform\\2012.2.0.0\\bin\\', ]
+env = Environment(ENV = {'PATH' : added_path})
+print env['ENV']
+path = env['ENV']['PATH']
+for item in path:
+	print item
+'''
