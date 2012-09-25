@@ -7,11 +7,16 @@ env = Environment(
 	)
 # env.Detect(['ghc'])
 print env['PLATFORM']
+env.Append(CPPPATH = '.')
 env.MergeFlags([
 	'-g',
 	'-std=c99',
 	])
 env.Program(target = 'word', source = ['lexer.c', 'utils.c'])
+env.Program(
+		target = 'cool', 
+		source = ['main.c', 'lexer_utils.c', 'code_file.c', 'lexer_identifier.c']
+		)
 # env.SharedLibrary('lexer', source = ['lexer.c'])
 
 '''

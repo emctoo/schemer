@@ -1,4 +1,4 @@
-; #! gsi
-; start
-(pretty-print (directory-files))
-(display "Hello, world!")
+define (square x) (* x x))
+(display "Hell, world!")
+(newline)
+(display (square 3))
